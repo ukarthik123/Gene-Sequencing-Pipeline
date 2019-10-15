@@ -1,0 +1,125 @@
+#!/bin/bash
+
+module load samtools
+
+# "*************************************************"
+# "********* Fast5 to VAF conversion Program *******"
+# "*************************************************"
+# "********* Please enter input parameters below *******"
+# "*************************************************"
+pTempFolder="ExpRavi"
+pFast5FilePath="/Users/macserver/Desktop/nanopore/specificity/ExpX/fast5"
+# "*************************************************"
+# "*************************************************"
+# "********* Setting environment variables *******"
+# "*************************************************"
+pHg19mmiFilePath="/Users/macserver/Desktop/nanopore/tools/align"
+pMinimap2FilePath="/Users/macserver/Desktop/nanopore/tools/align/minimap2"
+pSamtoolsFilePath="/Users/macserver/Desktop/nanopore/tools/samtools/bin"
+pToolGuppy="/Users/macserver/Desktop/nanopore/tools/ont-guppy-cpu/bin/guppy_basecaller"
+clear
+echo "*************************************************"
+echo "********* Fast5 to VAF conversion Program *******"
+echo "********* Usage: f5_vaf.sh Parm1 Parm2    *******"
+echo "********* Parm1: Experiment Name          *******"
+echo "********* Parm2: Fast5 file               *******"
+echo "*************************************************"
+echo "********* Experiment Folder: " $pTempFolder
+echo "********* Fast5 File: " $pFast5File
+echo "*************************************************"
+if [  -f "$pFast5FilePath" ]; then
+   echo "Error: Fast5FilePath - $pFast5FilePath does not exists"
+   exit
+fi
+echo "*************************************************"
+echo "********* First Step: Fast5 to Fastq      *******"
+echo "*************************************************"
+if [ !  -f "$pTempFolder" ]; then
+#   echo "$pTempFolder exist"
+   rm -r $pTempFolder
+else
+ mkdir $pTempFolder
+ mkdir $pTempFolder/fastq
+fi
+
+
+echo $pToolGuppy --input_path $pFast5FilePath --save_path $pTempFolder/fastq --flowcell FLO-MIN106 --kit SQK-LSK109 --recursive --num_callers 5 --barcode_kits EXP-NBD114
+
+ $pToolGuppy --input_path $pFast5FilePath --save_path $pTempFolder/fastq --flowcell FLO-MIN106 --kit SQK-LSK109 --recursive --num_callers 5 --barcode_kits EXP-NBD114
+
+echo "*************************************************"
+echo "********* Second Step: combining Fastq to single file *******"
+echo "*************************************************"
+
+for pFastqPath in $pTempFolder/fastq/*
+do
+   if [ -d "$pFastqPath" ]
+   then
+       cat $pFastqPath/*.fastq > $pFastqPath/$(basename "$pFastqPath").fastq
+   fi
+done
+
+echo "*************************************************"
+echo "********* Third Step: Fastq to BAM       *******"
+echo "*************************************************"
+
+mkdir $pTempFolder/bam
+for pFastqPath in $pTempFolder/fastq/*
+do
+   if [ -d "$pFastqPath" ]
+   then
+#       echo $pFastqPath
+#       echo $pTempFolder/bam/$(basename "$pFastqPath")
+       mkdir $pTempFolder/bam/$(basename "$pFastqPath")
+       for pFastqFile in $pFastqPath/*.fastq
+       do
+         pStr1=$(basename "$pFastqFile") 
+         pStr2=$(basename "$pFastqPath")".fastq"
+         if [ $pStr1 == $pStr2 ]
+         then 
+             echo "running $pFastqFile through minimap2"
+             $pMinimap2FilePath/minimap2 -t 8 -ax map-ont $pHg19mmiFilePath/hg19.mmi $pFastqFile > $pTempFolder/bam/$(basename "$pFastqPath")/$(basename "$pFastqPath")_19.sam
+          echo "*******   converting to bam   *******"
+          $pSamtoolsFilePath/samtools view -b $pTempFolder/bam/$(basename "$pFastqPath")/$(basename "$pFastqPath")_19.sam -o $pTempFolder/bam/$(basename "$pFastqPath")/$(basename "$pFastqPath")_19.unsorted.bam
+
+
+          echo "*******   sorting bam   *******"
+          $pSamtoolsFilePath/samtools sort $pTempFolder/bam/$(basename "$pFastqPath")/$(basename "$pFastqPath")_19.unsorted.bam -o $pTempFolder/bam/$(basename "$pFastqPath")/$(basename "$pFastqPath")_19.sorted.bam 
+
+          echo "*******   indexing bam   *******"
+          $pSamtoolsFilePath/samtools index $pTempFolder/bam/$(basename "$pFastqPath")/$(basename "$pFastqPath")_19.sorted.bam 
+
+        fi
+ done
+
+   fi
+done
+
+
+echo "*************************************************"
+echo "********* Forth  Step: BAM to VAF         *******"
+echo "*************************************************"
+
+# mkdir $pTempFolder/vaf
+# for pBamPath in $pTempFolder/bam/*
+# do
+#    if [ -d "$pBamPath" ]
+#    then
+#        mkdir $pTempFolder/bam/$(basename "$pBamPath")
+#        for pBamFile in $pBamPath/*.sorted.bam
+#        do
+#           if [ -d "$pFastqPath" ]
+#           then
+# samtools mpileup -f hg19.fa /Users/macserver/Desktop/nanopore/specificity/ExpX/fastq/unclassified_19_19_19.sorted.bam > pileup_unclassified_19_19_19.sorted.bam.txt
+#          fi
+##        done
+#   fi
+# done
+
+
+
+
+echo "*************************************************"
+echo "*********        Program End              *******"
+echo "*************************************************"
+

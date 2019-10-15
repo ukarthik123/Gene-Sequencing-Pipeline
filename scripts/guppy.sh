@@ -1,0 +1,1 @@
+/Users/macserver/Desktop/nanopore/ont-guppy-cpu/bin/guppy_basecaller --input_path /Users/macserver/Desktop/nanopore/specificity/fast5 --save_path /Users/macserver/Desktop/nanopore/specificity/fastq --flowcell FLO-MIN106 --kit SQK-LSK109 --recursive --num_callers 5 --barcode_kits EXP-NBD114
